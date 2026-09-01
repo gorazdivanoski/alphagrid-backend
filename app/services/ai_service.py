@@ -13,7 +13,7 @@ def generate_real_ai_analysis(stock_data: dict) -> dict:
     try:
         # Го користиме Gemini 1.5 Flash - извонредно брз модел за структурирани податоци
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-1.5-flash-latest",
             generation_config={"response_mime_type": "application/json"}
         )
 
