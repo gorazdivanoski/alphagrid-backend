@@ -1,0 +1,16 @@
+# Secret API Keys (НИКОГАШ да не се испраќа на GitHub!)
+.env
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyCharm & IDE Settings
+.idea/
+.vscode/
