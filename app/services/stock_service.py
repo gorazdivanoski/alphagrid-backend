@@ -1,6 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
+from app.services.ai_service import generate_real_ai_analysis
 
 def analyze_stock(ticker: str):
 
@@ -92,33 +93,11 @@ def stock_history(ticker: str, period: str = "1y"):
     except Exception as e:
         return {"error": str(e)}
 
-def generate_ai_summary(ticker: str):
 
+def generate_ai_summary(ticker: str):
     data = analyze_stock(ticker)
 
     if "error" in data:
         return data
 
-    rsi = data["indicators"]["rsi_14"]
-    price = data["current_price"]
-    verdict = data["technical_verdict"]
-    sector = data["sector"]
-
-    summary = (
-        f"Акцијата {ticker.upper()} моментално се тргува по цена од ${price} во секторот {sector}. "
-        f"Техничкиот индикатор RSI (14) изнесува {rsi}, што укажува на состојба: '{verdict}'."
-    )
-
-    if rsi and rsi < 35:
-        recommendation = "Сигнал за следење: Акцијата покажува знаци на прекумерна продажба. Можна зона за акумулација."
-    elif rsi and rsi > 65:
-        recommendation = "Сигнал за претпазливост: Акцијата се приближува до зона на висока валуација."
-    else:
-        recommendation = "Сигнал за стабилност: Акцијата се движи во неутрален оспег без екстремни осцилации."
-
-    return {
-        "ticker": ticker.upper(),
-        "generated_at": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "executive_summary": summary,
-        "ai_recommendation": recommendation
-    }
+    return generate_real_ai_analysis(data)
