@@ -16,7 +16,7 @@ def generate_real_ai_analysis(stock_data: dict) -> dict:
     try:
         # Го користиме потврдениот модел gemini-2.5-flash од твојата достапна листа
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
+            model_name="gemini-3.6-flash",
             generation_config={"response_mime_type": "application/json"}
         )
 
@@ -46,7 +46,7 @@ def generate_real_ai_analysis(stock_data: dict) -> dict:
         response = model.generate_content(prompt)
         return {
             "ticker": stock_data.get("ticker"),
-            "model_used": "gemini-2.5-flash",
+            "model_used": "gemini-3.6-flash",
             "analysis": json.loads(response.text)
         }
     except Exception as e:
