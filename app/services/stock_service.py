@@ -1,10 +1,10 @@
+import requests
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
 from app.services.ai_service import generate_real_ai_analysis
 
 def analyze_stock(ticker: str):
-
     try:
         stock = yf.Ticker(ticker.upper())
 
@@ -101,3 +101,28 @@ def generate_ai_summary(ticker: str):
         return data
 
     return generate_real_ai_analysis(data)
+
+def search_stocks(query: str) -> list:
+    if not query or len(query.strip()) < 1:
+        return []
+
+    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=8&newsCount=0"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+
+        results = []
+        for quote in data.get("quotes", []):
+            if quote.get("quoteType") in ["EQUITY", "ETF"]:
+                results.append({
+                    "symbol": quote.get("symbol"),
+                    "name": quote.get("shortname") or quote.get("longname"),
+                    "exchange": quote.get("exchange"),
+                    "type": quote.get("quoteType"),
+                })
+        return results
+    except Exception:
+        return []

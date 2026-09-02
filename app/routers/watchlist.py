@@ -10,12 +10,12 @@ Base.metadata.create_all(bind=engine)
 
 router = APIRouter(prefix="/watchlist", tags=["Watchlist"])
 
-@router.get("/", response_model=List[WatchlistResponse])
+@router.get("", response_model=List[WatchlistResponse])
 def get_watchlist(db: Session = Depends(get_db)):
     return db.query(WatchlistItem).all()
 
-@router.post("/", response_model=WatchlistResponse, status_code=status.HTTP_201_CREATED)
-def add_to_watchlist(item: WatchlistItem, db: Session = Depends(get_db)):
+@router.post("", response_model=WatchlistResponse, status_code=status.HTTP_201_CREATED)
+def add_to_watchlist(item: WatchlistCreate, db: Session = Depends(get_db)):
     ticker_upper = item.ticker.upper()
     existing = db.query(WatchlistItem).filter(WatchlistItem.ticker == ticker_upper).first()
     if existing:
