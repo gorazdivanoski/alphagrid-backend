@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import stocks
+from app.routers import stocks, watchlist
 
 app = FastAPI(
     title="AlphaGrid API",
@@ -17,6 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(stocks.router)
+app.include_router(watchlist.router)
 
 @app.get("/")
 def read_root():
