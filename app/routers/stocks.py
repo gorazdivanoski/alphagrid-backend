@@ -1,56 +1,31 @@
-from fastapi import APIRouter, HTTPException, Query
-from app.services.stock_service import analyze_stock, stock_history, search_stocks
-from app.services.ai_service import generate_real_ai_analysis
-from app.services.cache_service import stock_cache, ai_cache
+from fastapi import APIRouter, HTTPException, Depends
+from app.services import stock_service
+from app.schemas.stock import StockQuote, SymbolSearchResult
+from app.routers.auth import get_current_user
+from app.models.user import User
 
-router = APIRouter(prefix="/stocks", tags=["Stocks & Analysis"])
+router = APIRouter(prefix="/stocks", tags=["Stocks"])
 
-@router.get("/search")
-def search_ticker(q: str):
-    return search_stocks(q)
 
-@router.get("/{ticker}")
-def get_stock_analysis(ticker: str):
-    ticker_upper = ticker.upper()
+@router.get("/search", response_model=list[SymbolSearchResult])
+def search_stocks(q: str, current_user: User = Depends(get_current_user)):
+    if len(q) < 1:
+        raise HTTPException(status_code=400, detail="Пребарувањето мора да содржи барем еден карактер")
+    try:
+        results = stock_service.search_symbols(q)
+        return [
+            {"symbol": r["symbol"], "description": r["description"], "type": r["type"]}
+            for r in results
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Finnhub грешка: {str(e)}")
 
-    if ticker_upper in stock_cache:
-        return stock_cache[ticker_upper]
 
-    data = analyze_stock(ticker_upper)
-    if "error" in data:
-        raise HTTPException(status_code=404, detail=data["error"])
-
-    stock_cache[ticker_upper] = data
-    return data
-
-@router.get("/{ticker}/history")
-def get_stock_history(
-        ticker: str,
-        period: str = Query("1y", description="The period of the historical data"),
-):
-    data = stock_history(ticker, period)
-    if "error" in data:
-        raise HTTPException(status_code=404, detail=data["error"])
-    return data
-
-@router.get("/{ticker}/ai-summary")
-def get_ai_summary(ticker: str):
-    ticker_upper = ticker.upper()
-
-    if ticker_upper in ai_cache:
-        return ai_cache[ticker_upper]
-
-    if ticker_upper in stock_cache:
-        stock_data = stock_cache[ticker_upper]
-    else:
-        stock_data = analyze_stock(ticker_upper)
-        if "error" in stock_data:
-            raise HTTPException(status_code=404, detail=stock_data["error"])
-        stock_cache[ticker_upper] = stock_data
-
-    ai_response = generate_real_ai_analysis(stock_data)
-    if "error" in ai_response:
-        raise HTTPException(status_code=500, detail=ai_response["error"])
-
-    ai_cache[ticker_upper] = ai_response
-    return ai_response
+@router.get("/{ticker}", response_model=StockQuote)
+def get_stock(ticker: str, current_user: User = Depends(get_current_user)):
+    try:
+        return stock_service.get_full_stock_data(ticker)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Finnhub грешка: {str(e)}")
