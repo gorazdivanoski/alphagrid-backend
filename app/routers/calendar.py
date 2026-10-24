@@ -1,42 +1,59 @@
+import logging
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
 
 from app.database import get_db
-from app.models.calendar_event import CalendarEvent
-from app.schemas.calendar import CalendarEventCreate, CalendarEventResponse
-from app.services import stock_service
+from app.models.watchlist import WatchlistItem
+from app.services import stock_service, macro_service
 from app.routers.auth import get_current_user
 from app.models.user import User
-from app.models.watchlist import WatchlistItem
+
+try:
+    from zoneinfo import ZoneInfo
+    LOCAL_TZ = ZoneInfo("Europe/Skopje")
+except Exception:  # нема tzdata - користи UTC
+    LOCAL_TZ = timezone.utc
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/calendar", tags=["Calendar"])
+
+
+def _fmt_eps(value) -> str:
+    if value is None:
+        return "N/A"
+    try:
+        return f"${float(value):.2f}"
+    except (TypeError, ValueError):
+        return "N/A"
+
 
 @router.get("/this-week")
 def get_this_week_events(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    today = datetime.utcnow().date()
-    week_end = today + timedelta(days=7)
+    today = datetime.now(LOCAL_TZ).date()
+    today_iso = today.isoformat()
+    start_of_week = today - timedelta(days=today.weekday())
+    end_of_week = start_of_week + timedelta(days=6)
 
-    manual_events = db.query(CalendarEvent).filter(
-        CalendarEvent.event_date >= today,
-        CalendarEvent.event_date <= week_end,
-    ).all()
+    events = []
 
-    events = [
-        {
-            "title": e.title,
-            "description": e.description,
-            "date": e.event_date.strftime("%d/%m"),
-            "details": e.details,
-            "source": "manual",
-        }
-        for e in manual_events
-    ]
+    # Автоматски macro настани (CPI, работни места, GDP, FOMC)
+    macro_events = macro_service.get_macro_events(
+        start_of_week.isoformat(), end_of_week.isoformat()
+    )
+    for e in macro_events:
+        events.append({
+            **e,
+            "date": datetime.strptime(e["date_iso"], "%Y-%m-%d").strftime("%d/%m"),
+            "is_past": e["date_iso"] < today_iso,
+        })
 
-    # Земи ги watchlist тикерите на тековниот корисник
+    # Автоматски earnings за watchlist тикерите
     user_tickers = {
         item.ticker for item in
         db.query(WatchlistItem).filter(WatchlistItem.user_id == current_user.id).all()
@@ -44,32 +61,24 @@ def get_this_week_events(
 
     try:
         earnings = stock_service.get_earnings_calendar(
-            today.isoformat(), week_end.isoformat()
+            start_of_week.isoformat(), end_of_week.isoformat()
         )
         for e in earnings:
             if e.get("symbol") not in user_tickers:
-                continue  # прескокни компании надвор од watchlist-от
+                continue
+            eps = _fmt_eps(e.get("epsEstimate"))
             events.append({
                 "title": f"{e['symbol']} EARNINGS REPORT",
-                "description": "Estimated EPS",
+                "description": f"Estimated EPS: {eps}",
                 "date": datetime.strptime(e["date"], "%Y-%m-%d").strftime("%d/%m"),
-                "details": f"Estimated EPS: ${e.get('epsEstimate', 'N/A')}. Тримесечни детали и guidance информации.",
+                "date_iso": e["date"],
+                "details": f"Estimated EPS: {eps}. Тримесечни детали и guidance информации.",
                 "source": "earnings",
+                "is_past": e["date"] < today_iso,
             })
     except Exception as ex:
-        print(f"EARNINGS CALENDAR ERROR: {ex}")
+        logger.warning("EARNINGS CALENDAR ERROR: %s", ex)
 
-    events.sort(key=lambda x: datetime.strptime(x["date"], "%d/%m"))
+    # Хронолошки; на ист ден macro пред earnings
+    events.sort(key=lambda x: (x["date_iso"], 0 if x["source"] == "macro" else 1, x["title"]))
     return events
-
-@router.post("/events", response_model=CalendarEventResponse, status_code=201)
-def add_manual_event(
-    event: CalendarEventCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    db_event = CalendarEvent(**event.model_dump())
-    db.add(db_event)
-    db.commit()
-    db.refresh(db_event)
-    return db_event
