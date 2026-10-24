@@ -1,7 +1,13 @@
+import time
+from datetime import date, timedelta
 import finnhub
 import yfinance as yf
 from app.core.config import settings
 from app.services.cache_service import quote_cache, profile_cache
+
+# Stock market service for retrieving real-time quotes, company profiles,
+# trading volume, price history, and earnings data using Finnhub and Yahoo Finance.
+# Includes caching to reduce API requests and improve performance.
 
 client = finnhub.Client(api_key=settings.FINNHUB_API_KEY)
 
@@ -12,7 +18,6 @@ def get_quote(ticker: str) -> dict:
         return cached
 
     data = client.quote(ticker)
-    # data: {c: current, d: change, dp: percent, h: high, l: low, o: open, pc: prev_close, t: timestamp}
     if data.get("c") is None or data.get("c") == 0:
         raise ValueError(f"Нема податоци за ticker '{ticker}'")
 
@@ -47,6 +52,7 @@ def get_volume(ticker: str) -> int | None:
 
     return None
 
+
 def get_company_profile(ticker: str) -> dict:
     cached = profile_cache.get(ticker)
     if cached is not None:
@@ -63,7 +69,6 @@ def get_company_profile(ticker: str) -> dict:
 
 
 def get_full_stock_data(ticker: str) -> dict:
-    """Комбинира quote + profile + volume во еден response - за watchlist и stock detail."""
     ticker = ticker.upper()
     quote = get_quote(ticker)
     profile = get_company_profile(ticker)
@@ -76,8 +81,8 @@ def get_full_stock_data(ticker: str) -> dict:
         "change": quote["change"],
         "percent_change": quote["percent_change"],
         "volume": volume,
+        "logo": profile.get("logo"),
     }
-
 
 def search_symbols(query: str) -> list[dict]:
     results = client.symbol_lookup(query)
@@ -87,3 +92,49 @@ def search_symbols(query: str) -> list[dict]:
 def get_earnings_calendar(from_date: str, to_date: str) -> list[dict]:
     data = client.earnings_calendar(_from=from_date, to=to_date, symbol="", international=False)
     return data.get("earningsCalendar", [])
+
+
+def get_price_history(ticker: str, period: str = "1mo") -> list[dict]:
+    cache_key = f"history:{ticker}:{period}"
+    cached = quote_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period=period)
+
+    if hist.empty:
+        raise ValueError(f"Нема историски податоци за '{ticker}'")
+
+    result = [
+        {
+            "date": index.strftime("%Y-%m-%d"),
+            "close": round(row["Close"], 2),
+        }
+        for index, row in hist.iterrows()
+    ]
+
+    quote_cache.set(cache_key, result)
+    return result
+
+
+def get_next_earnings(ticker: str) -> dict | None:
+    today = date.today()
+    future = today + timedelta(days=120)
+
+    try:
+        data = client.earnings_calendar(
+            _from=today.isoformat(), to=future.isoformat(), symbol=ticker, international=False
+        )
+        events = data.get("earningsCalendar", [])
+        if not events:
+            return None
+
+        next_event = sorted(events, key=lambda e: e["date"])[0]
+        return {
+            "date": next_event["date"],
+            "eps_estimate": next_event.get("epsEstimate"),
+            "revenue_estimate": next_event.get("revenueEstimate"),
+        }
+    except Exception:
+        return None

@@ -5,6 +5,10 @@ from app.database import Base, engine
 from app.models import user, watchlist  # важно - експлицитен import пред create_all
 from app.routers import stocks, watchlist as watchlist_router, auth, calendar
 
+# Main FastAPI application setup for AlphaGrid,
+# including database initialization, CORS configuration,
+# API router registration, and a root status endpoint.
+
 Base.metadata.create_all(bind=engine)
 
 
@@ -16,7 +20,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], #tuka ke postavime tocna adresa na frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

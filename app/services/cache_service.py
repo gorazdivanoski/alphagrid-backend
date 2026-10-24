@@ -1,6 +1,9 @@
 import time
 from typing import Any, Optional
 
+# In-memory TTL cache for temporarily storing API responses,
+# with separate expiration times for stock quotes and company profiles.
+
 class TTLCache:
     def __init__(self, ttl_seconds: int = 15):
         self.ttl = ttl_seconds
@@ -22,6 +25,6 @@ class TTLCache:
     def clear(self) -> None:
         self._store.clear()
 
-# Одделни кешови со различно траење - цените се пофреквентни, профилите се стабилни
+# Separate caches with different TTLs - stock prices update frequently, while company profiles remain stable.
 quote_cache = TTLCache(ttl_seconds=15)
 profile_cache = TTLCache(ttl_seconds=3600)

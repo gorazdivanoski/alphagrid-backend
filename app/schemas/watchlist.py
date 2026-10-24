@@ -2,6 +2,9 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
 
+# Pydantic schemas for creating and retrieving watchlist items,
+# including stock details, date added, and ORM compatibility.
+
 class WatchlistCreate(BaseModel):
     ticker: str
     company_name: Optional[str] = None

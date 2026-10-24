@@ -1,3 +1,6 @@
+# FastAPI calendar routes for retrieving weekly macroeconomic events
+# and earnings reports for stocks in the authenticated user's watchlist.
+
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -13,7 +16,7 @@ from app.models.user import User
 try:
     from zoneinfo import ZoneInfo
     LOCAL_TZ = ZoneInfo("Europe/Skopje")
-except Exception:  # нема tzdata - користи UTC
+except Exception:
     LOCAL_TZ = timezone.utc
 
 logger = logging.getLogger(__name__)
@@ -53,7 +56,7 @@ def get_this_week_events(
             "is_past": e["date_iso"] < today_iso,
         })
 
-    # Автоматски earnings за watchlist тикерите
+    # Автоматски earnings за watchlist tickers
     user_tickers = {
         item.ticker for item in
         db.query(WatchlistItem).filter(WatchlistItem.user_id == current_user.id).all()

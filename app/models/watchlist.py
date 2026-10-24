@@ -3,6 +3,9 @@ from datetime import datetime
 from app.database import Base
 from sqlalchemy.orm import relationship
 
+# SQLAlchemy model representing a user's watchlist item,
+# including stock details, date added, and user relationship.
+
 class WatchlistItem(Base):
     __tablename__ = 'watchlist'
 

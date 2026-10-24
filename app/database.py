@@ -2,6 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+# Database configuration for SQLite using SQLAlchemy,
+# including engine setup, session management, and dependency injection.
+
 SQLALCHEMY_DATABASE_URL = "sqlite:///./alphagrid.db"
 
 engine = create_engine(

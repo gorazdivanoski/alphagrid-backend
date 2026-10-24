@@ -2,6 +2,9 @@ from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime
 from app.database import Base
 
+# SQLAlchemy model representing a user,
+# including authentication details and account creation timestamp.
+
 class User(Base):
     __tablename__ = "users"
 

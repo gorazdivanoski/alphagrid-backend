@@ -9,6 +9,9 @@ from app.core.security import hash_password, verify_password, create_access_toke
 
 # Base.metadata.create_all(bind=engine)
 
+# FastAPI authentication routes for user registration, login,
+# JWT token validation, and retrieving the currently authenticated user.
+
 router = APIRouter(prefix="/auth", tags=["Auth"])
 bearer_scheme = HTTPBearer()
 

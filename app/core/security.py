@@ -3,6 +3,9 @@ import bcrypt
 from jose import JWTError, jwt
 from app.core.config import settings
 
+# Utility functions for password hashing and verification,
+# and JWT access token generation and validation.
+
 def hash_password(password: str) -> str:
     password_bytes = password.encode("utf-8")
     hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())

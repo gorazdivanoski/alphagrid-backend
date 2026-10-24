@@ -1,5 +1,8 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 
+# Pydantic schemas for user registration, login, and profile responses,
+# including email validation and JWT authentication tokens.
+
 class UserCreate(BaseModel):
     email: EmailStr
     full_name: str

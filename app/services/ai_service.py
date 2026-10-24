@@ -1,53 +1,58 @@
-import os
-import json
-import google.generativeai as genai
-from dotenv import load_dotenv
+# AI service for generating stock analyses and answering follow-up questions,
+# using Google Gemini and real-time market data.
 
-load_dotenv()
+from google import genai
+from app.core.config import settings
 
-api_key = os.getenv("GEMINI_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-def generate_real_ai_analysis(stock_data: dict) -> dict:
-    if not api_key:
-        return {"error": "GEMINI_API_KEY не е пронајден во .env фајлот."}
+def get_stock_analysis(ticker: str, quote_data: dict) -> str:
+    prompt = f"""Ти си финансиски аналитичар кој пишува кратки stock briefing-и за инвеститори.
+
+Компанија: {quote_data['name']} ({ticker})
+Моментална цена: ${quote_data['price']}
+Дневна промена: {quote_data['percent_change']}%
+Волумен: {quote_data.get('volume', 'N/A')}
+
+Напиши анализа во ТОЧНО оваа структура, на македонски јазик:
+
+1. Прв пасус (2-3 реченици): Кратко опиши со што точно се занимава {quote_data['name']} - нивниот основен бизнис, индустрија, и клучни производи/услуги. Користи го твоето знаење за компанијата.
+
+2. Втор пасус (2-3 реченици): Објасни ја моменталната техничка слика - цената, промената, волуменот, и што тоа значи за краткорочниот моментум. Не давaj buy/sell/hold препораки.
+
+Вкупно максимум 6 реченици. Не додавaj наслови/bullet points, само двата пасуси еден по друг."""
 
     try:
-        # Го користиме потврдениот модел gemini-2.5-flash од твојата достапна листа
-        model = genai.GenerativeModel(
-            model_name="gemini-3.6-flash",
-            generation_config={"response_mime_type": "application/json"}
+        response = client.models.generate_content(
+            model="gemini-3.6-flash",
+            contents=prompt,
         )
-
-        prompt = f"""
-        Ти си експерт за финансиски пазари и Senior Quant Analyst.
-        Направи длабока, структурирана анализа за следната компанија:
-
-        - Симбол: {stock_data.get('ticker')}
-        - Сектор: {stock_data.get('sector')}
-        - Тековна цена: ${stock_data.get('current_price')} {stock_data.get('currency')}
-        - Индикатори:
-            * RSI (14): {stock_data.get('indicators', {}).get('rsi_14')}
-            * SMA 50: ${stock_data.get('indicators', {}).get('sma_50')}
-            * SMA 200: ${stock_data.get('indicators', {}).get('sma_200')}
-        - Следен Earnings датум: {stock_data.get('next_earnings_date')}
-        - Бизнис профил: {stock_data.get('business_summary')}
-
-        Врати анализа исклучиво на македонски јазик во следниот JSON формат:
-        {{
-            "executive_summary": "Синтетизирано фундаментално резиме за бизнисот.",
-            "technical_analysis": "Објаснување на RSI и подвижните просеци (SMA 50/200).",
-            "risk_factors": "Клучни ризици за инвеститорот.",
-            "ai_verdict": "Јасен финални заклучок (Bullish, Bearish или Neutral) со аргументација."
-        }}
-        """
-
-        response = model.generate_content(prompt)
-        return {
-            "ticker": stock_data.get("ticker"),
-            "model_used": "gemini-3.6-flash",
-            "analysis": json.loads(response.text)
-        }
+        return response.text
     except Exception as e:
-        return {"error": f"Грешка со Gemini API: {str(e)}"}
+        return f"AI анализата моментално не е достапна ({str(e)})"
+
+def get_followup_answer(ticker: str, quote_data: dict, question: str, previous_analysis: str | None = None) -> str:
+    context = f"""Ти си финансиски аналитичар кој разговара со инвеститор за акцијата {quote_data['name']} ({ticker}).
+
+Тековни податоци:
+Цена: ${quote_data['price']}
+Дневна промена: {quote_data['percent_change']}%
+Волумен: {quote_data.get('volume', 'N/A')}
+"""
+
+    if previous_analysis:
+        context += f"\nПретходна анализа што веќе ја имаш дадено:\n{previous_analysis}\n"
+
+    context += f"""
+Инвеститорот сега прашува: "{question}"
+
+Одговори кратко и јасно (максимум 4-5 реченици), на македонски јазик. Не давaj buy/sell/hold финансиски совети - само објективни информации и контекст. Ако прашањето бара податок што го немаш (пр. точни финансиски извештаи, идни настани надвор од твоето знаење), кажи тоа искрено наместо да измислуваш бројки."""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-3.6-flash",
+            contents=context,
+        )
+        return response.text
+    except Exception as e:
+        return f"Не успеав да дадам одговор ({str(e)})"

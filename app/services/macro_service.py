@@ -1,38 +1,39 @@
 import logging
-
 import requests
 from app.core.config import settings
 from app.services.cache_service import TTLCache
 
+# Service for retrieving and caching macroeconomic events from FRED,
+# including CPI, employment, GDP releases, and scheduled FOMC decisions.
+
 logger = logging.getLogger(__name__)
 
-macro_cache = TTLCache(ttl_seconds=3600 * 12)  # 12 часа, macro датумите не се менуваат често
+macro_cache = TTLCache(ttl_seconds=3600 * 12) # 12 hours
 
-# Клучни FRED release ID-иња релевантни за инвеститори.
-# Забелешка: release 101 (FOMC Press Release) е намерно исклучен - со
-# include_release_dates_with_no_data=true враќа placeholder датум за секој ден.
-# FOMC одлуките се земаат од официјалниот календар подолу.
+# Key FRED release IDs relevant to investors.
+# Release 101 (FOMC Press Release) is intentionally excluded because
+# include_release_dates_with_no_data=true returns placeholder dates for every day.
+# FOMC decisions are retrieved from the official calendar below.
 RELEVANT_RELEASES = {
     10: "CPI (Инфлација)",
     50: "Employment Situation (Работни места)",
     53: "GDP",
 }
 
-# Датуми на FOMC ОДЛУКА (вториот ден од состанокот), според официјалниот
-# календар на Federal Reserve:
+# FOMC decision dates (second day of each meeting), based on the official
+# Federal Reserve calendar:
 # https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
-# Ажурирај еднаш годишно.
+# Update annually.
 FOMC_DECISION_DATES_2026 = [
-    "2026-01-28",  # состанок 27-28 јануари
-    "2026-03-18",  # 17-18 март
-    "2026-04-29",  # 28-29 април
-    "2026-06-17",  # 16-17 јуни
-    "2026-07-29",  # 28-29 јули
-    "2026-09-16",  # 15-16 септември
-    "2026-10-28",  # 27-28 октомври
-    "2026-12-09",  # 8-9 декември
+    "2026-01-28",  # January 27-28 meeting
+    "2026-03-18",  # March 17-18 meeting
+    "2026-04-29",  # April 28-29 meeting
+    "2026-06-17",  # June 16-17 meeting
+    "2026-07-29",  # July 28-29 meeting
+    "2026-09-16",  # September 15-16 meeting
+    "2026-10-28",  # October 27-28 meeting
+    "2026-12-09",  # December 8-9 meeting
 ]
-
 
 def get_macro_events(start_date: str, end_date: str) -> list[dict]:
     cache_key = f"macro:{start_date}:{end_date}"
@@ -88,7 +89,7 @@ def get_macro_events(start_date: str, end_date: str) -> list[dict]:
                 "source": "macro",
             })
 
-    # Не кеширај ако FRED падна - инаку грешката останува 12 часа
+    # Do not cache if the FRED API fails to avoid caching incomplete data for 12 hours.
     if fred_ok:
         macro_cache.set(cache_key, events)
     return events

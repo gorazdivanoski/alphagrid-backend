@@ -1,3 +1,6 @@
+# FastAPI watchlist routes for retrieving stocks with live market data,
+# adding new stocks, and removing stocks from the authenticated user's watchlist.
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -25,7 +28,7 @@ def get_watchlist(
         try:
             live_data = stock_service.get_full_stock_data(item.ticker)
         except Exception:
-            # Ако Finnhub фрли грешка (пр. невалиден ticker или rate limit), сепак враќаме основни податоци
+            # If Finnhub fails (e.g., invalid ticker or rate limit), return basic data.
             live_data = {
                 "ticker": item.ticker,
                 "name": item.company_name or item.ticker,
